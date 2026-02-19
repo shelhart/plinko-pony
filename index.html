@@ -168,7 +168,7 @@
   <div class="score-display">🎯 <span id="drops">0</span></div>
 </div>
 
-<div id="drop-hint">Tap above to<br>let your pony ride! 🐴</div>
+<div id="drop-hint">Tap above or use ◀ ▶ + OK<br>to let your pony ride! 🐴</div>
 <div id="result-popup"></div>
 <div id="bonus-popup"></div>
 
@@ -194,6 +194,8 @@ let bonusItems = [];
 let score = 0;
 let drops = 0;
 let gameReady = true;
+let dropCursorX = 0; // For remote/keyboard control
+let showCursor = false; // Show cursor when using keyboard
 
 let slotMultipliers = [10, 5, 3, 2, 1, 2, 3, 5, 10];
 let slotColors = ['#ff4757', '#ff6b81', '#ffa502', '#eccc68', '#7bed9f', '#eccc68', '#ffa502', '#ff6b81', '#ff4757'];
@@ -1213,6 +1215,30 @@ function gameLoop(timestamp) {
   ctx.clearRect(0, 0, W, H);
 
   drawBackground();
+
+  // Draw drop cursor for remote/keyboard control
+  if (showCursor && gameReady) {
+    const cursorY = pegStartY - 30 * SCALE;
+    // Glowing drop indicator
+    ctx.save();
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 15 + Math.sin(Date.now() * 0.005) * 5;
+    // Arrow pointing down
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.moveTo(dropCursorX, cursorY + 15 * SCALE);
+    ctx.lineTo(dropCursorX - 12 * SCALE, cursorY - 5 * SCALE);
+    ctx.lineTo(dropCursorX + 12 * SCALE, cursorY - 5 * SCALE);
+    ctx.closePath();
+    ctx.fill();
+    // Small horse silhouette above arrow
+    ctx.globalAlpha = 0.7;
+    ctx.font = `${Math.max(16, 20 * SCALE)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('🐴', dropCursorX, cursorY - 15 * SCALE);
+    ctx.restore();
+  }
+
   drawPegs();
 
   // Draw bonus items (behind horse, in front of pegs)
@@ -1283,9 +1309,45 @@ canvas.addEventListener('touchstart', (e) => {
   }
 }, { passive: false });
 
+// ============ REMOTE/KEYBOARD CONTROLS ============
+document.addEventListener('keydown', (e) => {
+  initAudio();
+
+  const moveStep = pegSpacingX * 0.5; // Move half a peg width per press
+
+  switch(e.key) {
+    case 'ArrowLeft':
+    case 'Left':
+      e.preventDefault();
+      showCursor = true;
+      dropCursorX = Math.max(pegSpacingX, dropCursorX - moveStep);
+      break;
+    case 'ArrowRight':
+    case 'Right':
+      e.preventDefault();
+      showCursor = true;
+      dropCursorX = Math.min(W - pegSpacingX, dropCursorX + moveStep);
+      break;
+    case 'Enter':
+    case ' ':
+    case 'Select': // Fire TV select button
+      e.preventDefault();
+      if (showCursor || drops === 0) {
+        // Initialize cursor to center if first drop with remote
+        if (!showCursor) {
+          dropCursorX = W / 2;
+          showCursor = true;
+        }
+        dropHorse(dropCursorX);
+      }
+      break;
+  }
+});
+
 // ============ INIT ============
 window.addEventListener('resize', resize);
 resize();
+dropCursorX = W / 2; // Initialize cursor to center
 requestAnimationFrame(gameLoop);
 
 // ============ PWA SERVICE WORKER ============
