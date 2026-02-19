@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🐴 Plinko Pony!</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2d1b69">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@600;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: linear-gradient(180deg, #1a0a2e 0%, #2d1b69 30%, #4a2c8a 60%, #6b3fa0 100%);
+    font-family: 'Nunito', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    touch-action: none;
+    user-select: none;
+  }
+
+  canvas {
+    display: block;
+    margin: 0 auto;
+  }
+
+  #ui-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .score-display {
+    font-family: 'Fredoka One', cursive;
+    color: #ffd700;
+    font-size: 22px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(255,215,0,0.3);
+    pointer-events: auto;
+  }
+
+  .title {
+    font-family: 'Fredoka One', cursive;
+    color: #fff;
+    font-size: 18px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    text-align: center;
+  }
+
+  #drop-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Fredoka One', cursive;
+    color: rgba(255,255,255,0.7);
+    font-size: 20px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    animation: pulse 2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 10;
+    text-align: center;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  }
+
+  #result-popup {
+    position: absolute;
+    bottom: 15%;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    font-family: 'Fredoka One', cursive;
+    font-size: 36px;
+    color: #ffd700;
+    text-shadow: 0 3px 15px rgba(0,0,0,0.6), 0 0 30px rgba(255,215,0,0.4);
+    z-index: 20;
+    pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    white-space: nowrap;
+  }
+
+  #result-popup.show {
+    transform: translateX(-50%) scale(1);
+  }
+
+  #bonus-popup {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    font-family: 'Fredoka One', cursive;
+    font-size: 28px;
+    color: #7bed9f;
+    text-shadow: 0 3px 15px rgba(0,0,0,0.6), 0 0 20px rgba(123,237,159,0.4);
+    z-index: 20;
+    pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    white-space: nowrap;
+  }
+
+  #bonus-popup.show {
+    transform: translateX(-50%) scale(1);
+  }
+
+  #sound-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 30;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 22px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  #sound-btn:hover { background: rgba(255,255,255,0.25); }
+
+  #music-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 64px;
+    z-index: 30;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+    font-size: 18px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  #music-btn:hover { background: rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui-overlay">
+  <div class="score-display">⭐ <span id="score">0</span></div>
+  <div class="title">Plinko Pony</div>
+  <div class="score-display">🎯 <span id="drops">0</span></div>
+</div>
+
+<div id="drop-hint">Tap above to<br>let your pony ride! 🐴</div>
+<div id="result-popup"></div>
+<div id="bonus-popup"></div>
+
+<button id="sound-btn" title="Toggle Sound">🔊</button>
+<button id="music-btn" title="Toggle Music">🎵</button>
+
+<script>
+// ============ GAME CONFIG ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W, H, SCALE;
+let pegRows = 10;
+let pegCols = 9;
+let pegSpacingX, pegSpacingY, pegRadius, pegStartY;
+let pegs = [];
+let horses = [];
+let particles = [];
+let slots = [];
+let bonusItems = [];
+let score = 0;
+let drops = 0;
+let gameReady = true;
+
+const slotMultipliers = [10, 5, 3, 2, 1, 2, 3, 5, 10];
+const slotColors = ['#ff4757', '#ff6b81', '#ffa502', '#eccc68', '#7bed9f', '#eccc68', '#ffa502', '#ff6b81', '#ff4757'];
+
+// ============ BONUS ITEMS DEFINITION ============
+const BONUS_TYPES = [
+  { name: 'carrot',     emoji: '🥕', points: 8,  color: '#ff6348', label: 'Carrot!' },
+  { name: 'apple',      emoji: '🍎', points: 6,  color: '#ff4757', label: 'Apple!' },
+  { name: 'hayBale',    emoji: '🌾', points: 10, color: '#f9ca24', label: 'Hay Bale!' },
+  { name: 'horseshoe',  emoji: '🧲', points: 15, color: '#a29bfe', label: 'Lucky Horseshoe!' },
+  { name: 'sugarCube',  emoji: '🧊', points: 5,  color: '#dfe6e9', label: 'Sugar Cube!' },
+  { name: 'goldenOats', emoji: '✨', points: 20, color: '#ffd700', label: 'Golden Oats!' },
+];
+
+// ============ AUDIO ENGINE ============
+let audioCtx = null;
+let soundEnabled = true;
+let musicEnabled = false;
+let musicNodes = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playBounceSound(intensity) {
+  if (!audioCtx || !soundEnabled) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  const notes = [523, 587, 659, 784, 880, 1047, 1175, 1319];
+  const freq = notes[Math.floor(Math.random() * notes.length)];
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, now);
+  osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.03);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.8, now + 0.12);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(3000, now);
+  const vol = Math.min(0.15, 0.05 + intensity * 0.1);
+  gain.gain.setValueAtTime(vol, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.15);
+}
+
+function playDropSound() {
+  if (!audioCtx || !soundEnabled) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(800, now);
+  osc.frequency.exponentialRampToValueAtTime(300, now + 0.25);
+  gain.gain.setValueAtTime(0.08, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.25);
+
+  // Neigh!
+  const bufferLen = audioCtx.sampleRate * 0.3;
+  const buffer = audioCtx.createBuffer(1, bufferLen, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let phase = 0;
+  for (let i = 0; i < bufferLen; i++) {
+    const t = i / audioCtx.sampleRate;
+    const f = 600 + Math.sin(t * 25) * 200 + Math.sin(t * 8) * 100;
+    phase += f / audioCtx.sampleRate;
+    data[i] = (Math.sin(phase * Math.PI * 2) * 0.3 + (Math.random() - 0.5) * 0.15) *
+              Math.exp(-t * 8) * Math.sin(t * Math.PI / 0.3);
+  }
+  const src = audioCtx.createBufferSource();
+  const neighGain = audioCtx.createGain();
+  const neighFilter = audioCtx.createBiquadFilter();
+  src.buffer = buffer;
+  neighFilter.type = 'bandpass';
+  neighFilter.frequency.value = 800;
+  neighFilter.Q.value = 2;
+  neighGain.gain.setValueAtTime(0.12, now);
+  src.connect(neighFilter);
+  neighFilter.connect(neighGain);
+  neighGain.connect(audioCtx.destination);
+  src.start(now + 0.05);
+}
+
+function playLandSound(value) {
+  if (!audioCtx || !soundEnabled) return;
+  const now = audioCtx.currentTime;
+  const chords = {
+    1:  [392],
+    2:  [392, 494],
+    3:  [392, 494, 587],
+    5:  [392, 494, 587, 659],
+    10: [392, 494, 587, 659, 784, 880]
+  };
+  const notes = chords[value] || [392, 494, 587];
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const t = now + i * 0.08;
+    osc.type = i === notes.length - 1 ? 'sine' : 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    const vol = value >= 10 ? 0.12 : 0.08;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(vol, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.35);
+  });
+  if (value >= 10) {
+    const bufLen = audioCtx.sampleRate * 0.6;
+    const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      const t = i / audioCtx.sampleRate;
+      d[i] = Math.sin(i * 0.15) * Math.sin(i * 0.23) * 0.3 * Math.exp(-t * 4);
+    }
+    const src = audioCtx.createBufferSource();
+    const g = audioCtx.createGain();
+    src.buffer = buf;
+    g.gain.setValueAtTime(0.06, now);
+    src.connect(g);
+    g.connect(audioCtx.destination);
+    src.start(now + 0.1);
+  }
+}
+
+// Bonus collect sound — magical sparkle chime
+function playBonusCollectSound(points) {
+  if (!audioCtx || !soundEnabled) return;
+  const now = audioCtx.currentTime;
+
+  // Sparkle arpeggios going up
+  const sparkleNotes = [784, 988, 1175, 1319, 1568];
+  const count = points >= 15 ? 5 : points >= 10 ? 4 : 3;
+  for (let i = 0; i < count; i++) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const t = now + i * 0.06;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(sparkleNotes[i], t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.1, t + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.3);
+  }
+
+  // Shimmery noise layer
+  const bufLen = audioCtx.sampleRate * 0.4;
+  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) {
+    const t = i / audioCtx.sampleRate;
+    d[i] = (Math.random() - 0.5) * 0.2 * Math.exp(-t * 6) *
+           (Math.sin(i * 0.3) * 0.5 + 0.5);
+  }
+  const src = audioCtx.createBufferSource();
+  const filt = audioCtx.createBiquadFilter();
+  const g = audioCtx.createGain();
+  src.buffer = buf;
+  filt.type = 'bandpass';
+  filt.frequency.value = 4000;
+  filt.Q.value = 3;
+  g.gain.setValueAtTime(0.08, now);
+  src.connect(filt);
+  filt.connect(g);
+  g.connect(audioCtx.destination);
+  src.start(now);
+}
+
+// Bonus spawn sound — cheerful notification
+function playBonusSpawnSound() {
+  if (!audioCtx || !soundEnabled) return;
+  const now = audioCtx.currentTime;
+  [659, 784, 1047].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const t = now + i * 0.1;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.07, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.25);
+  });
+}
+
+// ============ BACKGROUND MUSIC ============
+function startMusic() {
+  if (!audioCtx) return;
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.04;
+  masterGain.connect(audioCtx.destination);
+  const bassGain = audioCtx.createGain();
+  bassGain.gain.value = 0.5;
+  bassGain.connect(masterGain);
+  const melodyGain = audioCtx.createGain();
+  melodyGain.gain.value = 0.3;
+  melodyGain.connect(masterGain);
+  const padGain = audioCtx.createGain();
+  padGain.gain.value = 0.2;
+  padGain.connect(masterGain);
+
+  const bassNotes   = [131, 131, 175, 175, 196, 196, 131, 131];
+  const melodyNotes = [
+    523, 587, 659, 784, 698, 659, 587, 523,
+    698, 784, 880, 784, 784, 698, 659, 587,
+    784, 880, 988, 880, 784, 698, 659, 523,
+    659, 784, 659, 587, 523, 587, 523, 0
+  ];
+  const padChords = [
+    [261, 329, 392], [261, 329, 392],
+    [349, 440, 523], [349, 440, 523],
+    [392, 494, 587], [392, 494, 587],
+    [261, 329, 392], [261, 329, 392],
+  ];
+
+  const bpm = 120;
+  const beatDur = 60 / bpm;
+  const eighthDur = beatDur / 2;
+  const loopDur = bassNotes.length * beatDur;
+  let loopTimeout;
+  let currentOscs = [];
+
+  function scheduleLoop() {
+    if (!musicEnabled) return;
+    const startTime = audioCtx.currentTime + 0.05;
+    bassNotes.forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const env = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = startTime + i * beatDur;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.5, t + 0.02);
+      env.gain.setValueAtTime(0.5, t + beatDur * 0.7);
+      env.gain.linearRampToValueAtTime(0, t + beatDur * 0.95);
+      osc.connect(env); env.connect(bassGain);
+      osc.start(t); osc.stop(t + beatDur);
+      currentOscs.push(osc);
+    });
+    melodyNotes.forEach((freq, i) => {
+      if (freq === 0) return;
+      const osc = audioCtx.createOscillator();
+      const env = audioCtx.createGain();
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      const t = startTime + i * eighthDur;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.35, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.01, t + eighthDur * 0.9);
+      osc.connect(env); env.connect(melodyGain);
+      osc.start(t); osc.stop(t + eighthDur);
+      currentOscs.push(osc);
+    });
+    padChords.forEach((chord, i) => {
+      chord.forEach(freq => {
+        const osc = audioCtx.createOscillator();
+        const env = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        const t = startTime + i * beatDur;
+        env.gain.setValueAtTime(0.15, t);
+        env.gain.setValueAtTime(0.15, t + beatDur * 0.8);
+        env.gain.linearRampToValueAtTime(0, t + beatDur);
+        osc.connect(env); env.connect(padGain);
+        osc.start(t); osc.stop(t + beatDur);
+        currentOscs.push(osc);
+      });
+    });
+    loopTimeout = setTimeout(scheduleLoop, loopDur * 1000 - 50);
+  }
+  scheduleLoop();
+  musicNodes = {
+    masterGain,
+    stop: () => {
+      clearTimeout(loopTimeout);
+      currentOscs.forEach(o => { try { o.stop(); } catch(e){} });
+      currentOscs = [];
+    }
+  };
+}
+
+function stopMusic() {
+  if (musicNodes) { musicNodes.stop(); musicNodes = null; }
+}
+
+document.getElementById('sound-btn').addEventListener('click', () => {
+  initAudio();
+  soundEnabled = !soundEnabled;
+  document.getElementById('sound-btn').textContent = soundEnabled ? '🔊' : '🔇';
+});
+
+document.getElementById('music-btn').addEventListener('click', () => {
+  initAudio();
+  musicEnabled = !musicEnabled;
+  document.getElementById('music-btn').textContent = musicEnabled ? '🎵' : '🚫';
+  if (musicEnabled) startMusic(); else stopMusic();
+});
+
+// ============ LAYOUT ============
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+  SCALE = Math.min(W / 400, H / 700);
+
+  pegSpacingX = W / (pegCols + 1);
+  pegSpacingY = (H * 0.6) / pegRows;
+  pegStartY = H * 0.15;
+  pegRadius = Math.max(4, 6 * SCALE);
+
+  pegs = [];
+  for (let row = 0; row < pegRows; row++) {
+    let cols = (row % 2 === 0) ? pegCols : pegCols - 1;
+    let offsetX = (row % 2 === 0) ? 0 : pegSpacingX / 2;
+    for (let col = 0; col < cols; col++) {
+      pegs.push({
+        x: pegSpacingX + offsetX + col * pegSpacingX,
+        y: pegStartY + row * pegSpacingY,
+        r: pegRadius,
+        glow: 0
+      });
+    }
+  }
+
+  slots = [];
+  let slotW = W / slotMultipliers.length;
+  let slotY = pegStartY + pegRows * pegSpacingY + pegSpacingY * 0.5;
+  for (let i = 0; i < slotMultipliers.length; i++) {
+    slots.push({
+      x: i * slotW,
+      y: slotY,
+      w: slotW,
+      h: H - slotY,
+      value: slotMultipliers[i],
+      color: slotColors[i],
+      glow: 0
+    });
+  }
+}
+
+// ============ BONUS ITEMS ============
+function spawnBonusItems() {
+  // Pick 1-2 random bonus types
+  const count = Math.random() < 0.4 ? 2 : 1;
+
+  for (let n = 0; n < count; n++) {
+    const type = BONUS_TYPES[Math.floor(Math.random() * BONUS_TYPES.length)];
+
+    // Decide: board placement or bucket placement
+    const inBucket = Math.random() < 0.35;
+
+    let x, y;
+    if (inBucket) {
+      // Place in a random slot
+      const slotIdx = Math.floor(Math.random() * slots.length);
+      const s = slots[slotIdx];
+      x = s.x + s.w / 2;
+      y = s.y + 25 * SCALE;
+    } else {
+      // Place on the board between pegs
+      // Pick a random row in the middle section (rows 2-8)
+      const row = 2 + Math.floor(Math.random() * 6);
+      const cols = (row % 2 === 0) ? pegCols : pegCols - 1;
+      const offsetX = (row % 2 === 0) ? 0 : pegSpacingX / 2;
+      // Place between two pegs horizontally
+      const col = Math.floor(Math.random() * (cols - 1));
+      x = pegSpacingX + offsetX + (col + 0.5) * pegSpacingX;
+      y = pegStartY + (row + 0.5) * pegSpacingY;
+    }
+
+    // Avoid overlap with existing bonus items
+    const tooClose = bonusItems.some(b =>
+      Math.abs(b.x - x) < pegSpacingX * 0.5 && Math.abs(b.y - y) < pegSpacingY * 0.5
+    );
+    if (tooClose) continue;
+
+    bonusItems.push({
+      x, y,
+      type,
+      inBucket,
+      roundsLeft: 3,
+      size: Math.max(14, 18 * SCALE),
+      phase: Math.random() * Math.PI * 2,
+      collected: false,
+      spawnAnim: 1, // 1 = just spawned, animate in
+    });
+  }
+
+  playBonusSpawnSound();
+}
+
+function drawBonusItem(item, dt) {
+  item.phase += dt * 2;
+
+  // Spawn animation (pop in)
+  if (item.spawnAnim > 0) {
+    item.spawnAnim = Math.max(0, item.spawnAnim - dt * 3);
+  }
+  const spawnScale = 1 - item.spawnAnim;
+  const popScale = spawnScale < 1 ? (1 + Math.sin(spawnScale * Math.PI) * 0.3) : 1;
+
+  // Bobbing
+  const bob = Math.sin(item.phase) * 3;
+  // Gentle glow pulse
+  const glowPulse = 0.4 + Math.sin(item.phase * 1.5) * 0.2;
+
+  const s = item.size * popScale;
+  const drawY = item.y + bob;
+
+  ctx.save();
+
+  // Glow ring
+  ctx.shadowColor = item.type.color;
+  ctx.shadowBlur = 12 * glowPulse;
+
+  // Background circle
+  const grad = ctx.createRadialGradient(item.x, drawY, 0, item.x, drawY, s);
+  grad.addColorStop(0, item.type.color + 'cc');
+  grad.addColorStop(0.7, item.type.color + '66');
+  grad.addColorStop(1, item.type.color + '00');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(item.x, drawY, s, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner solid circle
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.arc(item.x, drawY, s * 0.65, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = item.type.color + 'dd';
+  ctx.beginPath();
+  ctx.arc(item.x, drawY, s * 0.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw the item icon
+  ctx.font = `${Math.max(12, s * 0.9)}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(item.type.emoji, item.x, drawY);
+
+  // Rounds remaining indicator (small dots)
+  if (item.roundsLeft <= 3) {
+    for (let i = 0; i < item.roundsLeft; i++) {
+      const dotX = item.x - (item.roundsLeft - 1) * 4 + i * 8;
+      const dotY = drawY + s + 6;
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Sparkle particles around item
+  if (Math.random() < 0.1) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = s * (0.8 + Math.random() * 0.5);
+    particles.push({
+      x: item.x + Math.cos(angle) * dist,
+      y: drawY + Math.sin(angle) * dist,
+      vx: Math.cos(angle) * 20,
+      vy: Math.sin(angle) * 20 - 15,
+      life: 0.8,
+      color: item.type.color,
+      size: 1.5 + Math.random()
+    });
+  }
+
+  ctx.restore();
+}
+
+function checkBonusCollision(horse) {
+  for (let i = bonusItems.length - 1; i >= 0; i--) {
+    const item = bonusItems[i];
+    if (item.collected) continue;
+
+    const dx = horse.x - item.x;
+    const dy = horse.y - item.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const collectDist = item.size + horse.size * 0.5;
+
+    if (dist < collectDist) {
+      // Collect!
+      item.collected = true;
+
+      score += item.type.points;
+      document.getElementById('score').textContent = score;
+
+      playBonusCollectSound(item.type.points);
+
+      // Show bonus popup
+      const popup = document.getElementById('bonus-popup');
+      popup.textContent = `${item.type.emoji} ${item.type.label} +${item.type.points}`;
+      popup.classList.add('show');
+      setTimeout(() => popup.classList.remove('show'), 1200);
+
+      // Big particle burst in item color
+      for (let j = 0; j < 20; j++) {
+        const angle = (j / 20) * Math.PI * 2;
+        const speed = 80 + Math.random() * 120;
+        particles.push({
+          x: item.x,
+          y: item.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 50,
+          life: 1,
+          color: Math.random() < 0.5 ? item.type.color : '#ffd700',
+          size: 2 + Math.random() * 3
+        });
+      }
+
+      // Ring burst
+      for (let j = 0; j < 12; j++) {
+        const angle = (j / 12) * Math.PI * 2;
+        particles.push({
+          x: item.x + Math.cos(angle) * item.size,
+          y: item.y + Math.sin(angle) * item.size,
+          vx: Math.cos(angle) * 180,
+          vy: Math.sin(angle) * 180,
+          life: 0.6,
+          color: '#fff',
+          size: 2
+        });
+      }
+
+      bonusItems.splice(i, 1);
+    }
+  }
+}
+
+function ageBonusItems() {
+  // Called each time a horse is dropped — reduce roundsLeft
+  for (let i = bonusItems.length - 1; i >= 0; i--) {
+    bonusItems[i].roundsLeft--;
+    if (bonusItems[i].roundsLeft <= 0) {
+      // Fade-out particles
+      const item = bonusItems[i];
+      for (let j = 0; j < 8; j++) {
+        particles.push({
+          x: item.x + (Math.random() - 0.5) * item.size,
+          y: item.y + (Math.random() - 0.5) * item.size,
+          vx: (Math.random() - 0.5) * 60,
+          vy: -Math.random() * 40,
+          life: 0.7,
+          color: item.type.color,
+          size: 2
+        });
+      }
+      bonusItems.splice(i, 1);
+    }
+  }
+}
+
+// ============ HORSE SPRITE ============
+function drawHorse(x, y, size, rotation, bouncePhase, happy) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+
+  const s = size;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.5, s * 0.5, s * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body
+  ctx.fillStyle = '#c0813d';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.55, s * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#d4944a';
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.08, s * 0.4, s * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Saddle
+  ctx.fillStyle = '#8B0000';
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.15, s * 0.3, s * 0.18, 0, Math.PI * 0.8, Math.PI * 2.2);
+  ctx.fill();
+
+  ctx.fillStyle = '#a52a2a';
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.22, s * 0.22, s * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#6b1010';
+  ctx.beginPath();
+  ctx.arc(-s * 0.2, -s * 0.25, s * 0.07, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Stirrups
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = s * 0.04;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, -s * 0.05);
+  ctx.lineTo(-s * 0.2, s * 0.2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.15, -s * 0.05);
+  ctx.lineTo(s * 0.2, s * 0.2);
+  ctx.stroke();
+
+  // Legs
+  const legKick = Math.sin(bouncePhase * 5) * 0.15;
+  ctx.fillStyle = '#a06830';
+  ctx.save();
+  ctx.translate(s * 0.3, s * 0.2);
+  ctx.rotate(legKick);
+  ctx.fillRect(-s * 0.06, 0, s * 0.12, s * 0.3);
+  ctx.fillStyle = '#4a3520';
+  ctx.fillRect(-s * 0.07, s * 0.25, s * 0.14, s * 0.08);
+  ctx.restore();
+
+  ctx.fillStyle = '#a06830';
+  ctx.save();
+  ctx.translate(-s * 0.3, s * 0.2);
+  ctx.rotate(-legKick);
+  ctx.fillRect(-s * 0.06, 0, s * 0.12, s * 0.3);
+  ctx.fillStyle = '#4a3520';
+  ctx.fillRect(-s * 0.07, s * 0.25, s * 0.14, s * 0.08);
+  ctx.restore();
+
+  ctx.fillStyle = '#a06830';
+  ctx.save();
+  ctx.translate(s * 0.35, s * 0.15);
+  ctx.rotate(-legKick * 0.8);
+  ctx.fillRect(-s * 0.05, 0, s * 0.10, s * 0.28);
+  ctx.fillStyle = '#4a3520';
+  ctx.fillRect(-s * 0.06, s * 0.23, s * 0.12, s * 0.08);
+  ctx.restore();
+
+  ctx.fillStyle = '#a06830';
+  ctx.save();
+  ctx.translate(-s * 0.35, s * 0.15);
+  ctx.rotate(legKick * 0.8);
+  ctx.fillRect(-s * 0.05, 0, s * 0.10, s * 0.28);
+  ctx.fillStyle = '#4a3520';
+  ctx.fillRect(-s * 0.06, s * 0.23, s * 0.12, s * 0.08);
+  ctx.restore();
+
+  // Neck
+  ctx.fillStyle = '#c0813d';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.35, -s * 0.1);
+  ctx.quadraticCurveTo(s * 0.55, -s * 0.5, s * 0.5, -s * 0.65);
+  ctx.quadraticCurveTo(s * 0.4, -s * 0.55, s * 0.25, -s * 0.15);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = '#c9904a';
+  ctx.beginPath();
+  ctx.ellipse(s * 0.55, -s * 0.65, s * 0.2, s * 0.16, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#daa06d';
+  ctx.beginPath();
+  ctx.ellipse(s * 0.7, -s * 0.58, s * 0.1, s * 0.09, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = '#2d1b00';
+  ctx.beginPath();
+  ctx.arc(s * 0.52, -s * 0.7, s * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(s * 0.53, -s * 0.72, s * 0.02, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (happy) {
+    ctx.strokeStyle = '#6b3a10';
+    ctx.lineWidth = s * 0.03;
+    ctx.beginPath();
+    ctx.arc(s * 0.65, -s * 0.55, s * 0.08, 0.2, Math.PI * 0.8);
+    ctx.stroke();
+  }
+
+  // Ear
+  ctx.fillStyle = '#b07535';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.45, -s * 0.78);
+  ctx.lineTo(s * 0.48, -s * 0.93);
+  ctx.lineTo(s * 0.55, -s * 0.78);
+  ctx.fill();
+  ctx.fillStyle = '#e8b88a';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.47, -s * 0.8);
+  ctx.lineTo(s * 0.49, -s * 0.89);
+  ctx.lineTo(s * 0.53, -s * 0.8);
+  ctx.fill();
+
+  // Mane
+  ctx.fillStyle = '#5a3015';
+  for (let i = 0; i < 5; i++) {
+    const mx = s * 0.35 + i * s * (-0.03);
+    const my = -s * 0.3 - i * s * 0.08;
+    const wave = Math.sin(bouncePhase * 3 + i * 0.8) * s * 0.05;
+    ctx.beginPath();
+    ctx.ellipse(mx + wave, my, s * 0.06, s * 0.1, -0.3 + i * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Tail
+  ctx.fillStyle = '#5a3015';
+  const tailWave = Math.sin(bouncePhase * 4) * s * 0.15;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.5, -s * 0.05);
+  ctx.quadraticCurveTo(-s * 0.75 + tailWave, -s * 0.1, -s * 0.8 + tailWave, s * 0.15);
+  ctx.quadraticCurveTo(-s * 0.85 + tailWave, s * 0.3, -s * 0.7 + tailWave * 0.5, s * 0.35);
+  ctx.quadraticCurveTo(-s * 0.55, s * 0.2, -s * 0.48, s * 0.05);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ============ HORSE PHYSICS ============
+function createHorse(x) {
+  return {
+    x: x, y: pegStartY - 40 * SCALE,
+    vx: 0, vy: 0,
+    size: Math.max(16, 22 * SCALE),
+    phase: 0, active: true, happy: true,
+    landed: false, landTimer: 0, trail: [],
+    rotation: 0, rotVelocity: 0,
+    spinning: false, spinTarget: 0,
+  };
+}
+
+function updateHorse(h, dt) {
+  if (h.landed) {
+    h.landTimer += dt;
+    h.phase += dt;
+    h.rotation *= 0.9;
+    h.rotVelocity *= 0.85;
+    return;
+  }
+
+  h.vy += 500 * dt;
+  h.vx *= 0.999;
+  h.x += h.vx * dt;
+  h.y += h.vy * dt;
+  h.phase += dt;
+
+  // Rotation
+  if (h.spinning) {
+    const spinSpeed = 6;
+    const dir = h.spinTarget > 0 ? 1 : -1;
+    h.rotation += dir * spinSpeed * dt;
+    if (Math.abs(h.rotation) >= Math.abs(h.spinTarget)) {
+      h.rotation = 0; h.rotVelocity = 0; h.spinning = false;
+    }
+  } else {
+    const velocityRock = h.vx * 0.006;
+    const naturalSway = Math.sin(h.phase * 2.5) * 0.25;
+    const targetRock = velocityRock + naturalSway;
+    const rockAngle = Math.max(-0.52, Math.min(0.52, targetRock));
+    h.rotation += (rockAngle - h.rotation) * 3 * dt;
+  }
+
+  // Trail
+  if (Math.random() < 0.3) {
+    h.trail.push({ x: h.x, y: h.y + h.size * 0.2, life: 1, size: h.size * 0.15 });
+  }
+
+  // Wall bounds
+  if (h.x < h.size) { h.x = h.size; h.vx = Math.abs(h.vx) * 0.5; }
+  if (h.x > W - h.size) { h.x = W - h.size; h.vx = -Math.abs(h.vx) * 0.5; }
+
+  // Bonus item collision
+  checkBonusCollision(h);
+
+  // Peg collisions
+  for (let p of pegs) {
+    let dx = h.x - p.x;
+    let dy = h.y - p.y;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+    let minDist = p.r + h.size * 0.4;
+
+    if (dist < minDist && dist > 0) {
+      let nx = dx / dist;
+      let ny = dy / dist;
+      h.x = p.x + nx * minDist;
+      h.y = p.y + ny * minDist;
+      let dot = h.vx * nx + h.vy * ny;
+      h.vx -= 1.8 * dot * nx;
+      h.vy -= 1.8 * dot * ny;
+      h.vx += (Math.random() - 0.5) * 80;
+      h.vy *= 0.7;
+
+      let hitForce = Math.abs(dot);
+      let intensity = Math.min(1, hitForce / 300);
+
+      if (intensity > 0.5 && Math.random() < intensity * 0.3 && !h.spinning) {
+        h.spinning = true;
+        h.spinTarget = (Math.random() < 0.5 ? 1 : -1) * Math.PI * 2;
+        h.rotVelocity = h.spinTarget > 0 ? 2 : -2;
+      }
+
+      p.glow = 1;
+      playBounceSound(intensity);
+
+      for (let i = 0; i < 3; i++) {
+        particles.push({
+          x: p.x, y: p.y,
+          vx: (Math.random() - 0.5) * 150,
+          vy: (Math.random() - 0.5) * 150,
+          life: 1,
+          color: ['#ffd700', '#fff', '#ff69b4'][Math.floor(Math.random() * 3)],
+          size: Math.random() * 3 + 1
+        });
+      }
+    }
+  }
+
+  // Slot detection
+  for (let s of slots) {
+    if (h.y > s.y && h.x > s.x && h.x < s.x + s.w) {
+      h.landed = true;
+      h.vy = 0; h.vx = 0;
+      h.y = s.y + 10;
+      h.happy = true;
+      h.spinning = false;
+
+      score += s.value;
+      document.getElementById('score').textContent = score;
+      s.glow = 1;
+      playLandSound(s.value);
+
+      const popup = document.getElementById('result-popup');
+      let msg = s.value >= 5 ? `🌟 +${s.value} points! 🌟` : `+${s.value} points!`;
+      if (s.value >= 10) msg = `🏆 JACKPOT +${s.value}! 🏆`;
+      popup.textContent = msg;
+      popup.classList.add('show');
+      setTimeout(() => popup.classList.remove('show'), 1500);
+
+      for (let i = 0; i < 15; i++) {
+        particles.push({
+          x: h.x, y: h.y,
+          vx: (Math.random() - 0.5) * 300,
+          vy: -Math.random() * 250,
+          life: 1, color: s.color,
+          size: Math.random() * 5 + 2
+        });
+      }
+
+      setTimeout(() => { gameReady = true; }, 600);
+      break;
+    }
+  }
+}
+
+// ============ PARTICLES ============
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 200 * dt;
+    p.life -= dt * 1.5;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let h of horses) {
+    for (let i = h.trail.length - 1; i >= 0; i--) {
+      h.trail[i].life -= dt * 2;
+      if (h.trail[i].life <= 0) h.trail.splice(i, 1);
+    }
+  }
+}
+
+// ============ RENDERING ============
+function drawPegs() {
+  for (let p of pegs) {
+    if (p.glow > 0) {
+      ctx.save();
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 15 * p.glow;
+      ctx.fillStyle = `rgba(255, 215, 0, ${p.glow})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      p.glow = Math.max(0, p.glow - 0.03);
+    }
+    const grad = ctx.createRadialGradient(p.x - p.r * 0.3, p.y - p.r * 0.3, 0, p.x, p.y, p.r);
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(0.5, '#c8b8ff');
+    grad.addColorStop(1, '#8a6fbf');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawSlots() {
+  for (let s of slots) {
+    if (s.glow > 0) {
+      ctx.fillStyle = `rgba(255, 215, 0, ${s.glow * 0.3})`;
+      ctx.fillRect(s.x, s.y, s.w, s.h);
+      s.glow = Math.max(0, s.glow - 0.02);
+    }
+    ctx.fillStyle = s.color + '40';
+    ctx.fillRect(s.x + 1, s.y, s.w - 2, s.h);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(s.x, s.y, 2, s.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = `${Math.max(12, 16 * SCALE)}px 'Fredoka One', cursive`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`×${s.value}`, s.x + s.w / 2, s.y + 8);
+  }
+}
+
+function drawParticles() {
+  for (let p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (let h of horses) {
+    for (let t of h.trail) {
+      ctx.globalAlpha = t.life * 0.5;
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.size * t.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBackground() {
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  const time = Date.now() * 0.001;
+  for (let i = 0; i < 40; i++) {
+    const sx = ((i * 137.5) % W);
+    const sy = ((i * 87.3) % H);
+    const twinkle = Math.sin(time + i) * 0.5 + 0.5;
+    ctx.globalAlpha = twinkle * 0.4;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1 + twinkle, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ============ GAME LOOP ============
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.033);
+  lastTime = timestamp;
+
+  ctx.clearRect(0, 0, W, H);
+
+  drawBackground();
+  drawPegs();
+
+  // Draw bonus items (behind horse, in front of pegs)
+  for (let item of bonusItems) {
+    drawBonusItem(item, dt);
+  }
+
+  drawSlots();
+  drawParticles();
+  updateParticles(dt);
+
+  for (let i = horses.length - 1; i >= 0; i--) {
+    let h = horses[i];
+    updateHorse(h, dt);
+    if (h.landed && h.landTimer > 3) {
+      horses.splice(i, 1);
+      continue;
+    }
+    if (h.landed) {
+      ctx.globalAlpha = Math.max(0, 1 - h.landTimer / 3);
+    }
+    drawHorse(h.x, h.y, h.size, h.rotation, h.phase, h.happy);
+    ctx.globalAlpha = 1;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============ INPUT ============
+function dropHorse(clientX) {
+  if (!gameReady) return;
+  initAudio();
+
+  const x = Math.max(pegSpacingX, Math.min(W - pegSpacingX, clientX));
+  const h = createHorse(x);
+  horses.push(h);
+  drops++;
+  document.getElementById('drops').textContent = drops;
+  gameReady = false;
+
+  document.getElementById('drop-hint').style.display = 'none';
+  playDropSound();
+
+  // Age existing bonus items
+  ageBonusItems();
+
+  // Spawn new bonus items every 3rd drop
+  if (drops % 3 === 0) {
+    spawnBonusItems();
+  }
+
+  setTimeout(() => {
+    if (!gameReady) gameReady = true;
+  }, 2500);
+}
+
+canvas.addEventListener('click', (e) => {
+  if (e.clientY < pegStartY) {
+    dropHorse(e.clientX);
+  }
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  if (touch.clientY < pegStartY) {
+    dropHorse(touch.clientX);
+  }
+}, { passive: false });
+
+// ============ INIT ============
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(gameLoop);
+
+// ============ PWA SERVICE WORKER ============
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
