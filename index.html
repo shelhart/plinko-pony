@@ -1059,12 +1059,8 @@ function drawHorse(x, y, size, rotation, bouncePhase, happy) {
 
 // ============ HORSE PHYSICS ============
 function createHorse(x) {
-  // Size horse relative to peg spacing so it can't fall through gaps
-  // Gap between pegs (accounting for peg radius) should be smaller than horse collision diameter
-  // Horse collision uses size * 0.4, so we need size * 0.8 > gap
-  // gap = pegSpacingX - pegRadius * 2, so size > (pegSpacingX - pegRadius * 2) / 0.8
-  const minSizeForGap = (pegSpacingX - pegRadius * 2) * 0.7;
-  const horseSize = Math.max(16, 22 * SCALE, minSizeForGap);
+  // Original sizing with reasonable bounds
+  const horseSize = Math.max(16, Math.min(30, 22 * SCALE));
 
   return {
     x: x, y: pegStartY - 40 * SCALE,
