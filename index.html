@@ -183,6 +183,8 @@ const ctx = canvas.getContext('2d');
 let W, H, SCALE;
 let pegRows = 10;
 let pegCols = 9;
+let actualPegCols = 9; // May differ from pegCols based on screen size
+let boardOffsetX = 0;  // Left offset to center the peg board
 let pegSpacingX, pegSpacingY, pegRadius, pegStartY;
 let pegs = [];
 let horses = [];
@@ -193,8 +195,27 @@ let score = 0;
 let drops = 0;
 let gameReady = true;
 
-const slotMultipliers = [10, 5, 3, 2, 1, 2, 3, 5, 10];
-const slotColors = ['#ff4757', '#ff6b81', '#ffa502', '#eccc68', '#7bed9f', '#eccc68', '#ffa502', '#ff6b81', '#ff4757'];
+let slotMultipliers = [10, 5, 3, 2, 1, 2, 3, 5, 10];
+let slotColors = ['#ff4757', '#ff6b81', '#ffa502', '#eccc68', '#7bed9f', '#eccc68', '#ffa502', '#ff6b81', '#ff4757'];
+
+// Shuffle slots for variety each round
+function shuffleSlots() {
+  // Create paired array of [multiplier, color]
+  const paired = slotMultipliers.map((m, i) => ({ mult: m, color: slotColors[i] }));
+  // Fisher-Yates shuffle
+  for (let i = paired.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [paired[i], paired[j]] = [paired[j], paired[i]];
+  }
+  // Unpack back
+  slotMultipliers = paired.map(p => p.mult);
+  slotColors = paired.map(p => p.color);
+  // Update existing slots
+  for (let i = 0; i < slots.length; i++) {
+    slots[i].value = slotMultipliers[i];
+    slots[i].color = slotColors[i];
+  }
+}
 
 // ============ BONUS ITEMS DEFINITION ============
 const BONUS_TYPES = [
@@ -209,13 +230,17 @@ const BONUS_TYPES = [
 // ============ AUDIO ENGINE ============
 let audioCtx = null;
 let soundEnabled = true;
-let musicEnabled = false;
+let musicEnabled = true;
 let musicNodes = null;
 
 function initAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
+  // Start music on first interaction if enabled by default
+  if (musicEnabled && !musicNodes) {
+    startMusic();
+  }
 }
 
 function playBounceSound(intensity) {
@@ -511,18 +536,70 @@ function resize() {
   canvas.height = H;
   SCALE = Math.min(W / 400, H / 700);
 
-  pegSpacingX = W / (pegCols + 1);
-  pegSpacingY = (H * 0.6) / pegRows;
-  pegStartY = H * 0.15;
+  // Calculate horse size first so we can constrain peg spacing
+  const horseSize = Math.max(16, 22 * SCALE);
+  // Horse collision radius is size * 0.4, so diameter for gaps = size * 0.8
+  // Pegs should be spaced so gaps are smaller than horse collision diameter
+  const maxGap = horseSize * 1.5; // Maximum allowed gap between pegs
+
   pegRadius = Math.max(4, 6 * SCALE);
+  pegStartY = H * 0.15;
+
+  // Calculate spacing, but cap horizontal spacing to prevent fall-through
+  let rawSpacingX = W / (pegCols + 1);
+  pegSpacingX = Math.min(rawSpacingX, maxGap + pegRadius * 2);
+
+  // If we had to constrain spacing, add more columns to fill the width
+  actualPegCols = pegCols;
+  if (pegSpacingX < rawSpacingX) {
+    actualPegCols = Math.floor(W / pegSpacingX) - 1;
+    pegSpacingX = W / (actualPegCols + 1);
+  }
+
+  pegSpacingY = (H * 0.6) / pegRows;
+  // Also constrain vertical spacing
+  pegSpacingY = Math.min(pegSpacingY, maxGap + pegRadius * 2);
+
+  // Calculate actual board width and center offset
+  const boardWidth = actualPegCols * pegSpacingX;
+  boardOffsetX = (W - boardWidth) / 2;
 
   pegs = [];
   for (let row = 0; row < pegRows; row++) {
-    let cols = (row % 2 === 0) ? pegCols : pegCols - 1;
+    let cols = (row % 2 === 0) ? actualPegCols : actualPegCols - 1;
     let offsetX = (row % 2 === 0) ? 0 : pegSpacingX / 2;
     for (let col = 0; col < cols; col++) {
       pegs.push({
-        x: pegSpacingX + offsetX + col * pegSpacingX,
+        x: boardOffsetX + offsetX + col * pegSpacingX,
+        y: pegStartY + row * pegSpacingY,
+        r: pegRadius,
+        glow: 0
+      });
+    }
+
+    // Add edge pegs to prevent falling down the sides
+    // Place edge pegs on every row for complete coverage
+    const leftEdgeX = pegRadius + 2;
+    const rightEdgeX = W - pegRadius - 2;
+
+    // Check if this row's first peg is far enough from edge to need an edge peg
+    const firstPegX = boardOffsetX + offsetX;
+    const lastPegX = boardOffsetX + offsetX + (cols - 1) * pegSpacingX;
+
+    // Add left edge peg if there's a significant gap
+    if (firstPegX > leftEdgeX + pegRadius * 3) {
+      pegs.push({
+        x: leftEdgeX,
+        y: pegStartY + row * pegSpacingY,
+        r: pegRadius,
+        glow: 0
+      });
+    }
+
+    // Add right edge peg if there's a significant gap
+    if (lastPegX < rightEdgeX - pegRadius * 3) {
+      pegs.push({
+        x: rightEdgeX,
         y: pegStartY + row * pegSpacingY,
         r: pegRadius,
         glow: 0
@@ -568,11 +645,11 @@ function spawnBonusItems() {
       // Place on the board between pegs
       // Pick a random row in the middle section (rows 2-8)
       const row = 2 + Math.floor(Math.random() * 6);
-      const cols = (row % 2 === 0) ? pegCols : pegCols - 1;
+      const cols = (row % 2 === 0) ? actualPegCols : actualPegCols - 1;
       const offsetX = (row % 2 === 0) ? 0 : pegSpacingX / 2;
       // Place between two pegs horizontally
-      const col = Math.floor(Math.random() * (cols - 1));
-      x = pegSpacingX + offsetX + (col + 0.5) * pegSpacingX;
+      const col = Math.floor(Math.random() * Math.max(1, cols - 1));
+      x = boardOffsetX + offsetX + (col + 0.5) * pegSpacingX;
       y = pegStartY + (row + 0.5) * pegSpacingY;
     }
 
@@ -1058,6 +1135,9 @@ function updateHorse(h, dt) {
           size: Math.random() * 5 + 2
         });
       }
+
+      // Shuffle slots for next round
+      shuffleSlots();
 
       setTimeout(() => { gameReady = true; }, 600);
       break;
